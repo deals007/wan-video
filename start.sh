@@ -20,7 +20,7 @@ FILE_URLS=(
   "https://huggingface.co/Kijai/WanVideo_comfy/resolve/main/Lightx2v/lightx2v_I2V_14B_480p_cfg_step_distill_rank64_bf16.safetensors?download=true"
   "https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/resolve/main/split_files/vae/wan_2.1_vae.safetensors?download=true"
   "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors?download=true"
-  "https://huggingface.co/Kijai/WanVideo_comfy/resolve/main/WanAnimate_relight_lora_fp16.safetensors?download=true"
+  "https://huggingface.co/Kijai/WanVideo_comfy/resolve/main/relight_lora/WanAnimate_relight_lora_fp16.safetensors?download=true"
 )
 
 FILE_DIRS=(
@@ -35,7 +35,6 @@ FILE_DIRS=(
 AUTH_HEADER=()
 if [ -n "${HF_TOKEN:-}" ]; then
   AUTH_HEADER=(-H "Authorization: Bearer ${HF_TOKEN}")
-  echo "HF_TOKEN detected — authenticated Hugging Face downloads enabled"
 fi
 
 download_file() {
@@ -49,45 +48,31 @@ download_file() {
     local size
     size=$(stat -c%s "${out}" 2>/dev/null || echo 0)
     if [ "${size}" -ge "${MIN_BYTES}" ]; then
-      echo "✔ Already exists: ${out} (${size} bytes)"
+      echo "✔ Already exists: ${out}"
       return 0
     else
-      echo "⚠ Existing file too small, re-downloading: ${out}"
       rm -f "${out}"
     fi
   fi
 
-  echo "⬇ Downloading:"
-  echo "   ${url}"
+  echo "⬇ Downloading ${url}"
+  curl -fL --retry 10 --retry-delay 5 \
+       -H "User-Agent: Mozilla/5.0" \
+       -H "Accept: application/octet-stream" \
+       "${AUTH_HEADER[@]}" \
+       -o "${tmp}" "${url}"
 
-  curl -fL \
-    --retry 10 \
-    --retry-delay 5 \
-    --connect-timeout 30 \
-    -H "User-Agent: Mozilla/5.0" \
-    -H "Accept: application/octet-stream" \
-    "${AUTH_HEADER[@]}" \
-    -o "${tmp}" \
-    "${url}"
-
-  local bytes
-  bytes=$(stat -c%s "${tmp}" 2>/dev/null || echo 0)
-
-  if [ "${bytes}" -lt "${MIN_BYTES}" ]; then
-    echo "❌ ERROR: Download too small (${bytes} bytes)."
-    echo "Likely 403/429 or HTML error page from Hugging Face."
-    head -c 300 "${tmp}" || true
+  if [ "$(stat -c%s "${tmp}")" -lt "${MIN_BYTES}" ]; then
+    echo "❌ Corrupt download (too small)"
     rm -f "${tmp}"
     exit 1
   fi
 
   mv "${tmp}" "${out}"
-  echo "✔ Saved ${out} (${bytes} bytes)"
+  echo "✔ Saved ${out}"
 }
 
 for i in "${!FILE_NAMES[@]}"; do
-  echo "----------------------------------------"
-  echo "Preparing ${FILE_NAMES[$i]}"
   download_file "${FILE_URLS[$i]}" "${COMFYUI_DIR}/${FILE_DIRS[$i]}/${FILE_NAMES[$i]}"
 done
 
