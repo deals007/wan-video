@@ -20,7 +20,7 @@ FILE_URLS=(
   "https://huggingface.co/Kijai/WanVideo_comfy/resolve/main/Lightx2v/lightx2v_I2V_14B_480p_cfg_step_distill_rank64_bf16.safetensors?download=true"
   "https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/resolve/main/split_files/vae/wan_2.1_vae.safetensors?download=true"
   "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors?download=true"
-  "https://huggingface.co/Kijai/WanVideo_comfy/resolve/main/relight_lora/WanAnimate_relight_lora_fp16.safetensors?download=true"
+  "https://huggingface.co/Wan-AI/Wan2.2-Animate-14B/resolve/main/relighting_lora/adapter_model.safetensors?download=true"
 )
 
 FILE_DIRS=(
@@ -44,32 +44,26 @@ download_file() {
 
   mkdir -p "$(dirname "${out}")"
 
-  if [ -f "${out}" ]; then
-    local size
-    size=$(stat -c%s "${out}" 2>/dev/null || echo 0)
-    if [ "${size}" -ge "${MIN_BYTES}" ]; then
-      echo "✔ Already exists: ${out}"
-      return 0
-    else
-      rm -f "${out}"
-    fi
+  if [ -f "${out}" ] && [ "$(stat -c%s "${out}")" -ge "${MIN_BYTES}" ]; then
+    echo "✔ Already exists: ${out}"
+    return 0
   fi
 
-  echo "⬇ Downloading ${url}"
+  echo "⬇ Downloading: $url"
   curl -fL --retry 10 --retry-delay 5 \
        -H "User-Agent: Mozilla/5.0" \
        -H "Accept: application/octet-stream" \
        "${AUTH_HEADER[@]}" \
-       -o "${tmp}" "${url}"
+       -o "${tmp}" "$url"
 
   if [ "$(stat -c%s "${tmp}")" -lt "${MIN_BYTES}" ]; then
-    echo "❌ Corrupt download (too small)"
+    echo "❌ Download failed (too small)"
     rm -f "${tmp}"
     exit 1
   fi
 
   mv "${tmp}" "${out}"
-  echo "✔ Saved ${out}"
+  echo "✔ Saved: ${out}"
 }
 
 for i in "${!FILE_NAMES[@]}"; do
