@@ -1,11 +1,29 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -e
 
 COMFYUI_DIR="${COMFYUI_DIR:-/opt/ComfyUI}"
 PORT="${PORT:-8000}"
 MIN_BYTES=50000000
 
+cd "${COMFYUI_DIR}"
+
+echo "🚀 Starting ComfyUI on port ${PORT}..."
+
+# Start ComfyUI immediately so Koyeb health check passes
+python3 main.py \
+  --listen 0.0.0.0 \
+  --port "${PORT}" \
+  --disable-auto-launch \
+  --force-fp16 &
+
+COMFY_PID=$!
+
+# ---------------------------------------------------
+# Model List
+# ---------------------------------------------------
+
 FILES=(
+
 # ---------------------------
 # WAN 2.2 Animate
 # ---------------------------
@@ -39,7 +57,12 @@ FILES=(
 "models/loras/Wan2.2-Lightning_I2V-A14B-4steps-lora_HIGH_fp16.safetensors|https://huggingface.co/Kijai/WanVideo_comfy/resolve/main/LoRAs/Wan22-Lightning/old/Wan2.2-Lightning_I2V-A14B-4steps-lora_HIGH_fp16.safetensors?download=true"
 
 "models/loras/Wan2.2-Lightning_I2V-A14B-4steps-lora_LOW_fp16.safetensors|https://huggingface.co/Kijai/WanVideo_comfy/resolve/main/LoRAs/Wan22-Lightning/old/Wan2.2-Lightning_I2V-A14B-4steps-lora_LOW_fp16.safetensors?download=true"
+
 )
+
+# ---------------------------------------------------
+# HuggingFace Auth
+# ---------------------------------------------------
 
 AUTH_HEADER=()
 if [ -n "${HF_TOKEN:-}" ]; then
@@ -60,6 +83,7 @@ download_file() {
   fi
 
   echo "⬇ Downloading: ${target}"
+
   curl -fL --retry 10 --retry-delay 5 \
        -H "User-Agent: Mozilla/5.0" \
        -H "Accept: application/octet-stream" \
@@ -76,14 +100,17 @@ download_file() {
   echo "✔ Saved: ${target}"
 }
 
+# ---------------------------------------------------
+# Background Downloads
+# ---------------------------------------------------
+
+(
 for entry in "${FILES[@]}"; do
   IFS="|" read -r path url <<< "$entry"
   download_file "$path" "$url"
 done
 
-cd "${COMFYUI_DIR}"
+echo "✅ All models downloaded."
+) &
 
-exec python3 main.py \
-  --listen 0.0.0.0 \
-  --port "${PORT}" \
-  --disable-auto-launch
+wait $COMFY_PID
