@@ -28,23 +28,26 @@ RUN git clone https://github.com/comfyanonymous/ComfyUI.git ${COMFYUI_DIR}
 WORKDIR ${COMFYUI_DIR}
 
 # =========================
-# Install PyTorch (CUDA 12.1)
+# Install Stable PyTorch Stack (MATCHED)
 # =========================
-RUN python3 -m pip install --upgrade pip wheel setuptools \
- && python3 -m pip install --index-url https://download.pytorch.org/whl/cu121 \
-      torch torchvision torchaudio \
- && python3 -m pip install -r requirements.txt
+RUN python3 -m pip install --upgrade pip wheel setuptools && \
+    python3 -m pip install \
+      torch==2.3.1+cu121 \
+      torchvision==0.18.1+cu121 \
+      torchaudio==2.3.1+cu121 \
+      --index-url https://download.pytorch.org/whl/cu121 && \
+    python3 -m pip install -r requirements.txt
 
 # =========================
-# Install Performance Extensions
+# Install Performance Extensions (MATCHED)
 # =========================
 RUN python3 -m pip install \
+    xformers==0.0.26.post1 \
     sageattention \
-    xformers \
-    triton
-
-# If sageattention fails to install, uncomment this instead:
-# RUN python3 -m pip install git+https://github.com/thu-ml/SageAttention.git
+    triton \
+    diffusers \
+    accelerate \
+    einops
 
 # =========================
 # Custom Nodes
@@ -59,7 +62,7 @@ RUN mkdir -p ${COMFYUI_DIR}/custom_nodes && cd custom_nodes && \
     git clone https://github.com/kijai/ComfyUI-KJNodes.git || true && \
     git clone https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite.git || true
 
-# Install custom node requirements if present
+# Install any custom node requirements safely
 RUN find custom_nodes -name "requirements.txt" -exec pip install -r {} \; || true
 
 # =========================
