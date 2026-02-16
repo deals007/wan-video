@@ -5,35 +5,53 @@ SHELL ["/bin/bash", "-lc"]
 ENV DEBIAN_FRONTEND=noninteractive \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
-    COMFYUI_DIR=/opt/ComfyUI
+    COMFYUI_DIR=/opt/ComfyUI \
+    PATH="/opt/venv/bin:$PATH"
 
-# System packages
+# System deps
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    git curl ca-certificates \
+    git curl wget ca-certificates \
     python3 python3-pip python3-venv \
-    libgl1 libglib2.0-0 \
+    build-essential \
+    ffmpeg libgl1 libglib2.0-0 \
  && rm -rf /var/lib/apt/lists/*
+
+# Create virtualenv
+RUN python3 -m venv /opt/venv
+
+# Install PyTorch CUDA 12.1
+RUN pip install --upgrade pip setuptools wheel \
+ && pip install --index-url https://download.pytorch.org/whl/cu121 \
+      torch==2.2.0 torchvision torchaudio
 
 # Clone ComfyUI
 RUN git clone https://github.com/comfyanonymous/ComfyUI.git ${COMFYUI_DIR}
 
 WORKDIR ${COMFYUI_DIR}
 
-# Install PyTorch CUDA 12.1 (A100 compatible)
-RUN python3 -m pip install --upgrade pip wheel setuptools \
- && python3 -m pip install --index-url https://download.pytorch.org/whl/cu121 \
-      torch torchvision torchaudio \
- && python3 -m pip install -r requirements.txt
+# Install ComfyUI requirements
+RUN pip install -r requirements.txt
 
-# Custom nodes (Manager recommended)
-RUN mkdir -p ${COMFYUI_DIR}/custom_nodes \
- && git clone https://github.com/ltdrdata/ComfyUI-Manager.git \
-      ${COMFYUI_DIR}/custom_nodes/ComfyUI-Manager \
- || true
+# Install ONNX Runtime GPU
+RUN pip install onnxruntime-gpu
 
-# Copy start script
+# Install required custom nodes
+RUN cd custom_nodes \
+ && git clone https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite.git \
+ && git clone https://github.com/DazzleML/DazzleNodes.git \
+ && git clone https://github.com/woct0rdho/SageAttention.git \
+ && git clone https://github.com/woct0rdho/SpargeAttn.git
+
+# Install Triton (required for SageAttention)
+RUN pip install triton==2.2.0
+
+# Copy scripts
+COPY install_sage_triton.sh /install_sage_triton.sh
+RUN chmod +x /install_sage_triton.sh
+
 COPY start.sh /start.sh
 RUN chmod +x /start.sh
 
 EXPOSE 8000
+
 CMD ["/start.sh"]
