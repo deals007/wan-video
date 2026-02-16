@@ -33,9 +33,9 @@ download_file() {
   echo "✔ Saved: ${out}"
 }
 
-# ---------------------------
+# ------------------------------------------------
 # MODEL DOWNLOADS
-# ---------------------------
+# ------------------------------------------------
 
 download_file \
 "https://huggingface.co/Kijai/WanVideo_comfy_fp8_scaled/resolve/main/Wan22Animate/Wan2_2-Animate-14B_fp8_e4m3fn_scaled_KJ.safetensors" \
@@ -69,15 +69,15 @@ download_file \
 "https://huggingface.co/JunkyByte/easy_ViTPose/resolve/main/onnx/wholebody/vitpose-l-wholebody.onnx" \
 "${COMFYUI_DIR}/models/detection/vitpose-l-wholebody.onnx"
 
-# ---------------------------
-# INSTALL SAGE ATTENTION
-# ---------------------------
-
-/install_sage_triton.sh
+# ------------------------------------------------
+# START COMFYUI
+# ------------------------------------------------
 
 cd "${COMFYUI_DIR}"
 
 exec python main.py \
   --listen 0.0.0.0 \
   --port "${PORT}" \
+  --force-fp16 \
+  --use-pytorch-cross-attention \
   --disable-auto-launch
