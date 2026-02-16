@@ -5,74 +5,33 @@ SHELL ["/bin/bash", "-lc"]
 ENV DEBIAN_FRONTEND=noninteractive \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
-    COMFYUI_DIR=/opt/ComfyUI \
-    PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True \
-    CUDA_VISIBLE_DEVICES=0 \
-    TORCH_CUDNN_V8_API_ENABLED=1
+    COMFYUI_DIR=/opt/ComfyUI
 
-# -------------------------
-# System Dependencies (FIXED)
-# -------------------------
+# System packages
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git curl ca-certificates \
-    python3 python3-pip python3-venv python3-dev \
-    build-essential \
-    ffmpeg \
+    python3 python3-pip python3-venv \
     libgl1 libglib2.0-0 \
-    libsm6 libxext6 libxrender1 \
  && rm -rf /var/lib/apt/lists/*
 
-# -------------------------
 # Clone ComfyUI
-# -------------------------
 RUN git clone https://github.com/comfyanonymous/ComfyUI.git ${COMFYUI_DIR}
+
 WORKDIR ${COMFYUI_DIR}
 
-# -------------------------
-# PyTorch CUDA 12.1
-# -------------------------
+# Install PyTorch CUDA 12.1 (A100 compatible)
 RUN python3 -m pip install --upgrade pip wheel setuptools \
  && python3 -m pip install --index-url https://download.pytorch.org/whl/cu121 \
       torch torchvision torchaudio \
  && python3 -m pip install -r requirements.txt
 
-# Optional speed boost
-RUN python3 -m pip install xformers --index-url https://download.pytorch.org/whl/cu121 || true
+# Custom nodes (Manager recommended)
+RUN mkdir -p ${COMFYUI_DIR}/custom_nodes \
+ && git clone https://github.com/ltdrdata/ComfyUI-Manager.git \
+      ${COMFYUI_DIR}/custom_nodes/ComfyUI-Manager \
+ || true
 
-# -------------------------
-# ComfyUI Manager
-# -------------------------
-RUN mkdir -p custom_nodes \
- && git clone https://github.com/ltdrdata/ComfyUI-Manager.git custom_nodes/ComfyUI-Manager \
- && python3 -m pip install -r custom_nodes/ComfyUI-Manager/requirements.txt || true
-
-# -------------------------
-# ControlNet Auxiliary
-# -------------------------
-RUN git clone https://github.com/Fannovel16/comfyui_controlnet_aux.git \
-      custom_nodes/comfyui_controlnet_aux
-
-# Install dependencies (NOW WILL BUILD SUCCESSFULLY)
-RUN python3 -m pip install \
-      onnxruntime-gpu \
-      opencv-python-headless \
-      mediapipe \
-      insightface==0.7.3 \
-      numpy \
-      scipy \
-      scikit-image \
-      pillow
-
-# -------------------------
-# Video Helper Suite
-# -------------------------
-RUN git clone https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite.git \
-      custom_nodes/ComfyUI-VideoHelperSuite \
- && python3 -m pip install -r custom_nodes/ComfyUI-VideoHelperSuite/requirements.txt || true
-
-# -------------------------
-# Start Script
-# -------------------------
+# Copy start script
 COPY start.sh /start.sh
 RUN chmod +x /start.sh
 
